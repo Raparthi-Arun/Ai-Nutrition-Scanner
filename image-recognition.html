@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NutriScan — Image Recognition Tool</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .recognition-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .recognition-panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.02);
+    }
+
+    #detectionCanvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .detection-results {
+      margin-top: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .detection-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      background: rgba(39,230,165,0.1);
+      border-left: 3px solid var(--success);
+      font-size: 13px;
+    }
+
+    .detection-label {
+      font-weight: 700;
+      color: var(--success);
+      margin-bottom: 4px;
+    }
+
+    .detection-confidence {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .accuracy-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #27e6a5 0%, #2db7ff 100%);
+      color: #012;
+      font-weight: 700;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--success);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .info-box {
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(45,183,255,0.1);
+      border-left: 3px solid #2db7ff;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 15px;
+    }
+
+    @media (max-width: 1200px) {
+      .recognition-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <header class="site-header">
+        <div class="header-inner">
+          <div class="brand">
+            <div class="brand-icon">🔍</div>
+            <div>
+              <h1 class="brand-title">AI Image Recognition Tool</h1>
+              <p class="brand-subtitle">Advanced object detection powered by TensorFlow.js — runs locally in your browser.</p>
+            </div>
+          </div>
+          <nav class="header-nav">
+            <a href="index.html" class="nav-link">← Back to Scanner</a>
+          </nav>
+        </div>
+      </header>
+
+      <div class="recognition-container">
+        <!-- Left Panel: Upload & Image -->
+        <div class="recognition-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Upload Image</h3>
+            <span class="pill" id="modelStatus">Loading Model...</span>
+          </div>
+
+          <div class="uploader">
+            <div class="preview" id="imagePreview">
+              <div class="drop-hint">Drag & drop image here, or click <strong>Choose File</strong></div>
+              <img id="uploadedImg" alt="Preview" style="display:none;max-width:100%;border-radius:8px" />
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px; flex-direction: column;">
+              <label for="imageInput" class="btn ghost small" style="display: block; cursor: pointer; text-align: center;">
+                📁 Choose Image File
+                <input id="imageInput" type="file" accept="image/*" style="display:none" />
+              </label>
+
+              <button class="btn primary" id="analyzeBtn" style="width: 100%;">
+                🚀 Analyze Image
+              </button>
+
+              <button class="btn small" id="exampleRecBtn" style="width: 100%;">
+                📸 Load Example
+              </button>
+
+              <button class="btn small" id="clearRecBtn" style="width: 100%;">
+                🗑️ Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="info-box">
+            <strong>ℹ️ How it works:</strong> This tool uses TensorFlow.js with COCO-SSD model to detect objects in real-time. All processing happens locally in your browser — no data is sent to external servers.
+          </div>
+        </div>
+
+        <!-- Right Panel: Results -->
+        <div class="recognition-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Detection Results</h3>
+            <div id="processingIndicator" style="display: none;">
+              <span class="loading-spinner"></span>
+              <span style="font-size: 12px; color: var(--muted);">Analyzing...</span>
+            </div>
+          </div>
+
+          <div class="canvas-container">
+            <canvas id="detectionCanvas" style="display: none;"></canvas>
+            <div id="noResultsMsg" style="padding: 40px 20px; text-align: center; color: var(--muted);">
+              No image analyzed yet. Upload an image to get started.
+            </div>
+          </div>
+
+          <div id="accuracyInfo"></div>
+
+          <div class="detection-results" id="detectionResults"></div>
+
+          <div class="info-box" id="statsBox" style="display: none;">
+            <strong>📊 Detection Stats:</strong>
+            <div style="margin-top: 8px;">
+              <div>Objects Detected: <span id="objectCount" style="color: var(--success); font-weight: 700;">0</span></div>
+              <div>Average Confidence: <span id="avgConfidence" style="color: var(--success); font-weight: 700;">0%</span></div>
+              <div>Processing Time: <span id="processingTime" style="color: var(--success); font-weight: 700;">0ms</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- TensorFlow.js + COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <script>
+    let model = null;
+    let currentImage = null;
+
+    const imageInput = document.getElementById('imageInput');
+    const uploadedImg = document.getElementById('uploadedImg');
+    const imagePreview = document.getElementById('imagePreview');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const clearRecBtn = document.getElementById('clearRecBtn');
+    const exampleRecBtn = document.getElementById('exampleRecBtn');
+    const modelStatus = document.getElementById('modelStatus');
+    const detectionCanvas = document.getElementById('detectionCanvas');
+    const detectionResults = document.getElementById('detectionResults');
+    const noResultsMsg = document.getElementById('noResultsMsg');
+    const processingIndicator = document.getElementById('processingIndicator');
+    const accuracyInfo = document.getElementById('accuracyInfo');
+    const statsBox = document.getElementById('statsBox');
+
+    // Load model on page load
+    async function loadModel() {
+      try {
+        modelStatus.textContent = 'Loading TensorFlow Model...';
+        model = await cocoSsd.load();
+        modelStatus.textContent = '✅ Model Ready';
+        modelStatus.style.background = 'rgba(39,230,165,0.2)';
+        modelStatus.style.borderLeft = '3px solid var(--success)';
+      } catch (error) {
+        modelStatus.textContent = '❌ Model Load Failed';
+        alert('Error loading model: ' + error.message);
+      }
+    }
+
+    loadModel();
+
+    // Drag & Drop
+    imagePreview.addEventListener('dragover', e => {
+      e.preventDefault();
+      imagePreview.style.borderColor = 'rgba(255,255,255,0.2)';
+    });
+
+    imagePreview.addEventListener('dragleave', () => {
+      imagePreview.style.borderColor = 'transparent';
+    });
+
+    imagePreview.addEventListener('drop', e => {
+      e.preventDefault();
+      imagePreview.style.borderColor = 'transparent';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        handleImageFile(file);
+      }
+    });
+
+    // File Input
+    imageInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) handleImageFile(file);
+    });
+
+    function handleImageFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        currentImage = new Image();
+        currentImage.onload = () => {
+          uploadedImg.src = currentImage.src;
+          uploadedImg.style.display = 'block';
+          const hint = imagePreview.querySelector('.drop-hint');
+          if (hint) hint.style.display = 'none';
+        };
+        currentImage.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Example Image
+    exampleRecBtn.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+
+      // Draw background
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw plate (circle)
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(400, 300, 150, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw food items (rectangles)
+      ctx.fillStyle = '#ff9900';
+      ctx.fillRect(280, 200, 120, 80); // Bread
+
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(420, 220, 100, 100); // Tomato
+
+      ctx.fillStyle = '#90ee90';
+      ctx.fillRect(320, 320, 110, 60); // Lettuce
+
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillRect(200, 250, 60, 40); // Cheese
+
+      const url = canvas.toDataURL('image/jpeg', 0.9);
+      currentImage = new Image();
+      currentImage.src = url;
+      currentImage.onload = () => {
+        uploadedImg.src = url;
+        uploadedImg.style.display = 'block';
+        const hint = imagePreview.querySelector('.drop-hint');
+        if (hint) hint.style.display = 'none';
+      };
+    });
+
+    // Analyze Button
+    analyzeBtn.addEventListener('click', async () => {
+      if (!model) {
+        alert('Model is still loading. Please wait.');
+        return;
+      }
+
+      if (!currentImage) {
+        alert('Please upload or select an image first.');
+        return;
+      }
+
+      processingIndicator.style.display = 'block';
+      detectionResults.innerHTML = '';
+      statsBox.style.display = 'none';
+
+      const startTime = performance.now();
+
+      try {
+        const predictions = await model.detect(currentImage);
+        const endTime = performance.now();
+        const processingTime = (endTime - startTime).toFixed(2);
+
+        displayDetections(predictions, processingTime);
+      } catch (error) {
+        alert('Error analyzing image: ' + error.message);
+      } finally {
+        processingIndicator.style.display = 'none';
+      }
+    });
+
+    function displayDetections(predictions, processingTime) {
+      noResultsMsg.style.display = 'none';
+      detectionCanvas.style.display = 'block';
+
+      // Setup canvas
+      const ctx = detectionCanvas.getContext('2d');
+      detectionCanvas.width = currentImage.width;
+      detectionCanvas.height = currentImage.height;
+
+      // Draw image
+      ctx.drawImage(currentImage, 0, 0);
+
+      // Draw bounding boxes and labels
+      const colors = [
+        '#27e6a5', '#2db7ff', '#ff6b6b', '#ffd93d', '#a78bfa',
+        '#f97316', '#06b6d4', '#ec4899'
+      ];
+
+      predictions.forEach((pred, idx) => {
+        const [x, y, width, height] = pred.bbox;
+        const color = colors[idx % colors.length];
+
+        // Bounding box
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, width, height);
+
+        // Label background
+        ctx.fillStyle = color;
+        const textHeight = 24;
+        ctx.fillRect(x, y - textHeight - 4, width, textHeight);
+
+        // Label text
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText(
+          `${pred.class} (${(pred.score * 100).toFixed(1)}%)`,
+          x + 5,
+          y - 8
+        );
+      });
+
+      // Display results
+      if (predictions.length === 0) {
+        detectionResults.innerHTML = '<div class="muted" style="padding: 20px; text-align: center;">No objects detected in this image.</div>';
+      } else {
+        predictions.forEach((pred, idx) => {
+          const div = document.createElement('div');
+          div.className = 'detection-item';
+          div.innerHTML = `
+            <div class="detection-label">${idx + 1}. ${pred.class}</div>
+            <div class="detection-confidence">Confidence: ${(pred.score * 100).toFixed(2)}%</div>
+            <div class="detection-confidence">Position: (${pred.bbox[0].toFixed(0)}, ${pred.bbox[1].toFixed(0)})</div>
+          `;
+          detectionResults.appendChild(div);
+        });
+      }
+
+      // Display accuracy info
+      const avgConfidence = predictions.length > 0
+        ? (predictions.reduce((sum, p) => sum + p.score, 0) / predictions.length * 100).toFixed(2)
+        : 0;
+
+      accuracyInfo.innerHTML = `
+        <div class="accuracy-badge">
+          📊 ${predictions.length} Objects Detected
+        </div>
+        <div class="accuracy-badge" style="background: linear-gradient(135deg, #2db7ff 0%, #a78bfa 100%);">
+          🎯 ${avgConfidence}% Average Confidence
+        </div>
+      `;
+
+      // Stats
+      document.getElementById('objectCount').textContent = predictions.length;
+      document.getElementById('avgConfidence').textContent = avgConfidence + '%';
+      document.getElementById('processingTime').textContent = processingTime + 'ms';
+      statsBox.style.display = 'block';
+    }
+
+    // Clear Button
+    clearRecBtn.addEventListener('click', () => {
+      uploadedImg.src = '';
+      uploadedImg.style.display = 'none';
+      currentImage = null;
+      detectionCanvas.style.display = 'none';
+      noResultsMsg.style.display = 'block';
+      detectionResults.innerHTML = '';
+      accuracyInfo.innerHTML = '';
+      statsBox.style.display = 'none';
+      const hint = imagePreview.querySelector('.drop-hint');
+      if (hint) hint.style.display = 'block';
+    });
+  </script>
+</body>
+</html>

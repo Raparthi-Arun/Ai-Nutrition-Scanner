@@ -1,0 +1,171 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NutriScan — AI Nutrition Scanner (Frontend)</title>
+  <meta name="description" content="Beautiful frontend for an AI Nutrition Scanner. Upload or capture food images and get nutrition estimates." />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <!-- ========= HEADER ========= -->
+<header class="site-header">
+    <div class="header-inner">
+        <div class="brand">
+            <div class="brand-icon">AI</div>
+            <div>
+                <h1 class="brand-title">AI Nutrition Scanner</h1>
+                <p class="brand-subtitle">Smart food analysis powered by AI — instantly estimate calories & macros from any photo.</p>
+            </div>
+        </div>
+
+        <nav class="header-nav">
+            <a href="#" class="nav-link active">Scan</a>
+            <a href="#" class="nav-link">History</a>
+            <a href="#" class="nav-link">About</a>
+        </nav>
+    </div>
+</header>
+<!-- ========= END HEADER ========= -->
+
+      <div class="capture">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="pill">AI Model: Vision v1</span>
+            <span class="muted" style="font-size:13px">• Tip: place plate on contrast background</span>
+          </div>
+          <div class="muted" id="statusText">Ready</div>
+        </div>
+
+        <div class="uploader">
+          <div class="preview" id="preview">
+            <div class="drop-hint">Drag & drop an image here, or click <strong>Upload Image</strong></div>
+            <video id="cameraFeed" autoplay playsinline style="display:none"></video>
+            <img id="previewImg" alt="Preview" style="display:none" />
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="controls">
+                <button class="btn primary" id="captureBtn">Scan Nutrition</button>
+                <button class="btn" id="startCamBtn">Start Camera</button>
+                <button class="btn" id="stopCamBtn">Stop Camera</button>
+              </div>
+
+              <label for="fileInput" class="btn ghost small" style="display:inline-block;cursor:pointer">Upload Image
+                <input id="fileInput" type="file" accept="image/*" style="display:none" />
+              </label>
+
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn small" id="clearBtn">Clear</button>
+                <button class="btn small" id="exampleBtn">Load Example</button>
+                <div style="flex:1"></div>
+                <button class="btn small" id="settingsBtn" title="Settings">⚙</button>
+              </div>
+            </div>
+
+            <div style="font-size:13px;color:var(--muted);">
+              <strong>Accessibility:</strong> Buttons have large targets; keyboard friendly. Results include text labels.
+            </div>
+
+            <div class="card" style="padding:12px">
+              <strong>About this app</strong>
+              <p class="muted" style="margin-top:8px;font-size:13px">NutriScan sends images to a nutrition backend (or simulated engine). The backend should return calories and macronutrients. See the JavaScript area for integration instructions.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="result-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="muted">Nutrition Summary</div>
+            <h2 id="calText" style="margin:6px 0 0">— kcal</h2>
+          </div>
+          <div id="statusIcon"><div class="loader" style="display:none"></div></div>
+        </div>
+
+        <div class="result-grid">
+          <div>
+            <div class="muted">Protein</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+              <div style="flex:1">
+                <div class="macro-bar"><div id="proteinFill" class="macro-fill fill-protein" style="width:14%"></div></div>
+              </div>
+              <div style="min-width:54px;text-align:right;font-weight:700" id="proteinText">— g</div>
+            </div>
+
+            <div style="margin-top:10px" class="muted">Carbs</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+              <div style="flex:1">
+                <div class="macro-bar"><div id="carbFill" class="macro-fill fill-carb" style="width:40%"></div></div>
+              </div>
+              <div style="min-width:54px;text-align:right;font-weight:700" id="carbText">— g</div>
+            </div>
+
+            <div style="margin-top:10px" class="muted">Fat</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+              <div style="flex:1">
+                <div class="macro-bar"><div id="fatFill" class="macro-fill fill-fat" style="width:22%"></div></div>
+              </div>
+              <div style="min-width:54px;text-align:right;font-weight:700" id="fatText">— g</div>
+            </div>
+
+          </div>
+          <div>
+            <div class="muted">Portion</div>
+            <div style="font-weight:800;font-size:20px;margin-top:8px" id="portionText">—</div>
+
+            <div style="margin-top:14px" class="muted">Confidence</div>
+            <div style="font-weight:700;font-size:18px;margin-top:8px" id="confText">—</div>
+
+            <div style="margin-top:14px" class="muted">Actions</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn small" id="saveBtn">Save</button>
+              <button class="btn small" id="shareBtn">Share</button>
+              <button class="btn small" id="copyBtn">Copy</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>History</strong>
+          <button class="btn small" id="clearHistory">Clear</button>
+        </div>
+        <div class="history" id="historyList" style="margin-top:12px">
+          <!-- history items inserted here -->
+        </div>
+      </div>
+
+      <!-- ========= FOOTER ========= -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-title">AI Nutrition Scanner</p>
+        <p class="footer-desc">Helping people make smarter food decisions with fast, AI-powered nutrition insights.</p>
+
+        <div class="footer-links">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+            <a href="#">Contact</a>
+        </div>
+
+        <p class="footer-copy">© 2025 NutriScan AI. All rights reserved.</p>
+    </div>
+</footer>
+<!-- ========= END FOOTER ========= -->
+
+    </aside>
+
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
